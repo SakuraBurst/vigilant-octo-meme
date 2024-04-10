@@ -1,7 +1,7 @@
 create table feature (id int primary key);
 create table tags (id int primary key);
 create table banners_tags (id serial primary key, tag_id int, banner_id int, foreign key (tag_id) references tags (id), foreign key (banner_id) references banners (id));
-CREATE table banners (id serial primary key, feature_id int, content json, is_active bool);
+create table banners (id serial primary key, feature_id int, content json, is_active bool, foreign key (feature_id) references feature (id));
 
 
 --тегайди 2 феатуреайди 3
