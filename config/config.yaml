@@ -1,0 +1,5 @@
+env: "local"
+storage_path: "postgres@postgres.postgres"
+app:
+  port: "8080"
+  cache_ttl: 5m
