@@ -1,8 +1,20 @@
-create table feature (id int primary key);
-create table tags (id int primary key);
-create table banners_tags (id serial primary key, tag_id int, banner_id int, foreign key (tag_id) references tags (id), foreign key (banner_id) references banners (id));
-create table banners (id serial primary key, feature_id int, content json, is_active bool, foreign key (feature_id) references feature (id));
+create table if not exists feature (id int primary key);
+create table if not exists tags (id int primary key);
+create table if not exists banners (id serial primary key, tags int array, feature_id int not null, content json not null, is_active bool not null, created_at timestamp not null default now(), updated_at timestamp not null default now(), foreign key (feature_id) references feature (id));
+create table if not exists banners_tags (id serial primary key, tag_id int not null, banner_id int not null, foreign key (tag_id) references tags (id), foreign key (banner_id) references banners (id));
 
+CREATE OR REPLACE FUNCTION trigger_set_timestamp()
+    RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE or replace TRIGGER set_timestamp
+    BEFORE UPDATE ON banners
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_set_timestamp();
 
 --тегайди 2 феатуреайди 3
 --select (content) from banners b

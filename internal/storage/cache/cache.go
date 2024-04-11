@@ -21,7 +21,7 @@ func (s CacheStore) GetRequestCache(ctx context.Context, key []byte) ([]byte, er
 	return s.cacheManager.Get(ctx, key)
 }
 
-func NewCacheStore(cfg config.Config) *CacheStore {
+func New(cfg *config.Config) *CacheStore {
 	gocacheClient := gocache.New(cfg.App.CacheTTL, cfg.App.CacheTTL+5*time.Minute)
 	gocacheStore := gocache_store.NewGoCache(gocacheClient)
 	cacheManager := cache.New[[]byte](gocacheStore)

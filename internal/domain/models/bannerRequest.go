@@ -1,8 +1,8 @@
 package models
 
 type BannerRequest struct {
-	TagId     int
-	FeatureId int
+	TagID     int
+	FeatureID int
 	Limit     int
 	Offset    int
 }

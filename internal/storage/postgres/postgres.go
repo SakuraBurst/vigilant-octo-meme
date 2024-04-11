@@ -6,11 +6,11 @@ import (
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/constants"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/models"
 	"github.com/go-faster/errors"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -19,15 +19,15 @@ type DB struct {
 }
 
 func (d *DB) SaveBanner(banner *models.Banner) error {
-	r := d.Conn.QueryRow(context.TODO(), "insert into banner (feature_id, content, is_active) values ($1,$2,$3)", banner.Feature, banner.Content, banner.IsActive)
-	bannerID := 0
-	err := r.Scan(&bannerID)
-	if err != nil {
-		return errors.Wrap(err, "insert banner scan failed")
-	}
-	_, err = d.Conn.Exec(context.TODO(), "insert into feature (id) values ($1) on conflict do nothing", banner.Feature)
+	_, err := d.Conn.Exec(context.TODO(), "insert into feature (id) values ($1) on conflict do nothing", banner.Feature)
 	if err != nil {
 		return errors.Wrap(err, "insert feature failed")
+	}
+	r := d.Conn.QueryRow(context.TODO(), "insert into banners (feature_id, tags, content, is_active) values ($1,$2,$3,$4) returning id", banner.Feature, banner.Tags, banner.Content, banner.IsActive)
+	bannerID := 0
+	err = r.Scan(&bannerID)
+	if err != nil {
+		return errors.Wrap(err, "insert banner scan failed")
 	}
 	for _, tag := range banner.Tags {
 		_, err = d.Conn.Exec(context.TODO(), "insert into tags (id) values ($1) on conflict do nothing", tag)
@@ -35,7 +35,7 @@ func (d *DB) SaveBanner(banner *models.Banner) error {
 			return errors.Wrap(err, "insert tags failed")
 		}
 
-		_, err = d.Conn.Exec(context.TODO(), "insert into banner_tags (tag_id, banner_id) values ($1, $2)", tag, bannerID)
+		_, err = d.Conn.Exec(context.TODO(), "insert into banners_tags (tag_id, banner_id) values ($1, $2)", tag, bannerID)
 		if err != nil {
 			return errors.Wrap(err, "insert tags failed")
 		}
@@ -45,11 +45,11 @@ func (d *DB) SaveBanner(banner *models.Banner) error {
 }
 
 func (d *DB) UpdateBanner(id int, banner *models.Banner) error {
-	_, err := d.Conn.Exec(context.TODO(), "delete from banner_tags where banner_id = $1", id)
+	_, err := d.Conn.Exec(context.TODO(), "delete from banners_tags where banner_id = $1", id)
 	if err != nil {
 		return errors.Wrap(err, "delete banner tags failed")
 	}
-	_, err = d.Conn.Exec(context.TODO(), "UPDATE banner SET feature_id = $1, content = $2, is_active = $3 WHERE id = $4", banner.Feature, banner.Content, banner.IsActive, id)
+	_, err = d.Conn.Exec(context.TODO(), "UPDATE banners SET feature_id = $1, tags = $2, content = $3, is_active = $4 WHERE id = $4", banner.Feature, banner.Tags, banner.Content, banner.IsActive, id)
 	if err != nil {
 		return errors.Wrap(err, "update banner failed")
 	}
@@ -63,7 +63,7 @@ func (d *DB) UpdateBanner(id int, banner *models.Banner) error {
 			return errors.Wrap(err, "insert tags failed")
 		}
 
-		_, err = d.Conn.Exec(context.TODO(), "insert into banner_tags (tag_id, banner_id) values ($1, $2)", tag, id)
+		_, err = d.Conn.Exec(context.TODO(), "insert into banners_tags (tag_id, banner_id) values ($1, $2)", tag, id)
 		if err != nil {
 			return errors.Wrap(err, "insert tags failed")
 		}
@@ -71,12 +71,12 @@ func (d *DB) UpdateBanner(id int, banner *models.Banner) error {
 	return nil
 }
 
-func (d *DB) DeleteBanner(bannerId int) error {
-	_, err := d.Conn.Exec(context.TODO(), "delete from banner_tags where banner_id = $1", bannerId)
+func (d *DB) DeleteBanner(bannerID int) error {
+	_, err := d.Conn.Exec(context.TODO(), "delete from banners_tags where banner_id = $1", bannerID)
 	if err != nil {
 		return errors.Wrap(err, "delete banner tags failed")
 	}
-	_, err = d.Conn.Exec(context.TODO(), "delete from banner where id = $1", bannerId)
+	_, err = d.Conn.Exec(context.TODO(), "delete from banners where id = $1", bannerID)
 	if err != nil {
 		return errors.Wrap(err, "delete banner failed")
 
@@ -85,53 +85,44 @@ func (d *DB) DeleteBanner(bannerId int) error {
 }
 
 func (d *DB) GetUserBanner(bannerRequest *models.BannerRequest) (*models.Banner, error) {
-	sqlBuilder := strings.Builder{}
-	sqlBuilder.WriteString("select * from banner b ")
-	if bannerRequest.TagId != constants.NoValue {
-		sqlBuilder.WriteString("join banner_tags bt on b.id = bt.banner_id where bt.tag_id = $1 ")
+	var row pgx.Row
+	if bannerRequest.TagID != constants.NoValue && bannerRequest.FeatureID != constants.NoValue {
+		row = d.Conn.QueryRow(context.TODO(), "select b.id, b.tags, b.feature_id, b.content, b.is_active, b.created_at, b.updated_at from banners b join banners_tags bt on b.id = bt.banner_id where bt.tag_id = $1 and b.feature_id = $2 and b.is_active = true order by b.id desc limit 1", bannerRequest.TagID, bannerRequest.FeatureID)
+	} else if bannerRequest.TagID != constants.NoValue && bannerRequest.FeatureID == constants.NoValue {
+		row = d.Conn.QueryRow(context.TODO(), "select b.id, b.tags, b.feature_id, b.content, b.is_active, b.created_at, b.updated_at from banners b join banners_tags bt on b.id = bt.banner_id where bt.tag_id = $1 and b.is_active = true order by b.id desc limit 1", bannerRequest.TagID)
+	} else {
+		row = d.Conn.QueryRow(context.TODO(), "select id, tags, feature_id, content, is_active, created_at, updated_at from banners where feature_id = $1 and is_active = true order by id desc limit 1", bannerRequest.FeatureID)
 	}
-	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId != constants.NoValue {
-		sqlBuilder.WriteString("and b.feature_id = $2 ")
-	}
-	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId == constants.NoValue {
-		sqlBuilder.WriteString("where b.feature_id = $1 ")
-	}
-	sqlBuilder.WriteString("and b.is_active = true order by b.id desc limit 1")
-	row := d.Conn.QueryRow(context.TODO(), sqlBuilder.String(), bannerRequest.FeatureId, bannerRequest.TagId)
 	banner := models.Banner{}
-	err := row.Scan(&banner.ID, &banner.Feature, &banner.Content, &banner.IsActive)
+	err := row.Scan(&banner.ID, &banner.Tags, &banner.Feature, &banner.Content, &banner.IsActive, &banner.CreatedAt, &banner.UpdatedAt)
 	if err != nil {
 		return nil, errors.Wrap(err, "select banner failed")
 	}
 	return &banner, nil
 }
 
+// подразумевается, что будет либо tagID, либо featureID, либо оба
 func (d *DB) GetAllBanners(bannerRequest *models.BannerRequest) ([]models.Banner, error) {
-	sqlBuilder := strings.Builder{}
-	sqlBuilder.WriteString("select * from banner b ")
-	if bannerRequest.TagId != constants.NoValue {
-		sqlBuilder.WriteString("join banner_tags bt on b.id = bt.banner_id where bt.tag_id = $1 ")
+	var rows pgx.Rows
+	var err error
+	if bannerRequest.TagID != constants.NoValue && bannerRequest.FeatureID != constants.NoValue {
+		rows, err = d.Conn.Query(context.TODO(), "select b.id, b.tags, b.feature_id, b.content, b.is_active, b.created_at, b.updated_at from banners b join banners_tags bt on b.id = bt.banner_id where bt.tag_id = $1 and b.feature_id = $2 order by b.id desc limit $3 offset $4", bannerRequest.TagID, bannerRequest.FeatureID, bannerRequest.Limit, bannerRequest.Offset)
+	} else if bannerRequest.TagID != constants.NoValue && bannerRequest.FeatureID == constants.NoValue {
+		rows, err = d.Conn.Query(context.TODO(), "select b.id, b.tags, b.feature_id, b.content, b.is_active, b.created_at, b.updated_at from banners b join banners_tags bt on b.id = bt.banner_id where bt.tag_id = $1 order by b.id desc limit $2 offset $3", bannerRequest.TagID, bannerRequest.Limit, bannerRequest.Offset)
+	} else {
+		rows, err = d.Conn.Query(context.TODO(), "select id, tags, feature_id, content, is_active, created_at, updated_at from banners where feature_id = $1 order by id desc limit $2 offset $3", bannerRequest.FeatureID, bannerRequest.Limit, bannerRequest.Offset)
 	}
-	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId != constants.NoValue {
-		sqlBuilder.WriteString("and b.feature_id = $2 ")
-	}
-	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId == constants.NoValue {
-		sqlBuilder.WriteString("where b.feature_id = $1 ")
-	}
-	sqlBuilder.WriteString("order by b.id desc limit $3 offset $4")
-	rows, err := d.Conn.Query(context.TODO(), sqlBuilder.String(), bannerRequest.FeatureId, bannerRequest.TagId, bannerRequest.Limit, bannerRequest.Offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "select banner failed")
 	}
 	banners := make([]models.Banner, 0)
 	for rows.Next() {
 		banner := models.Banner{}
-		err = rows.Scan(&banner.ID, &banner.Feature, &banner.Content, &banner.IsActive)
+		err = rows.Scan(&banner.ID, &banner.Tags, &banner.Feature, &banner.Content, &banner.IsActive, &banner.CreatedAt, &banner.UpdatedAt)
 		if err != nil {
 			return nil, errors.Wrap(err, "select banner failed")
 		}
 		banners = append(banners, banner)
-
 	}
 	return banners, nil
 }
@@ -141,7 +132,7 @@ func (d *DB) Close() error {
 	return nil
 }
 
-func NewDB(cfg config.Config) (*DB, error) {
+func New(cfg *config.Config) (*DB, error) {
 	conn, err := initDatabase(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "InitDatabase failed")
@@ -167,7 +158,7 @@ func onConnectScript(conn *pgxpool.Pool) error {
 	return nil
 }
 
-func initDatabase(cfg config.Config) (*pgxpool.Pool, error) {
+func initDatabase(cfg *config.Config) (*pgxpool.Pool, error) {
 	ctx, cl := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cl()
 	pool, err := pgxpool.New(ctx, cfg.StoragePath)

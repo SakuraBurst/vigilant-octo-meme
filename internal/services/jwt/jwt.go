@@ -1,4 +1,4 @@
-package jwt
+package jwtservice
 
 import (
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/config"
@@ -12,7 +12,7 @@ type Service struct {
 	tokenTTL time.Duration
 }
 
-func NewJwtService(cfg config.Config) *Service {
+func New(cfg *config.Config) *Service {
 	return &Service{
 		secret:   cfg.App.AppSecret,
 		tokenTTL: cfg.App.TokenTTL,
@@ -34,7 +34,7 @@ func (s *Service) NewToken(isAdmin bool) (string, error) {
 
 // err == nil - значит токен валидный, булевое значение - админ ли пользователь
 func (s *Service) ParseToken(tokenString string) (bool, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(_ *jwt.Token) (interface{}, error) {
 		return []byte(s.secret), nil
 	})
 	if err != nil {

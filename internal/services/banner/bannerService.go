@@ -3,7 +3,6 @@ package bannerservice
 import (
 	"context"
 	"encoding/json"
-	"github.com/SakuraBurst/vigilant-octo-meme/internal/config"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/models"
 	"github.com/go-faster/errors"
 )
@@ -11,7 +10,7 @@ import (
 type BannerStore interface {
 	SaveBanner(banner *models.Banner) error
 	UpdateBanner(id int, banner *models.Banner) error
-	DeleteBanner(bannerId int) error
+	DeleteBanner(bannerID int) error
 	GetUserBanner(bannerRequest *models.BannerRequest) (*models.Banner, error)
 	GetAllBanners(bannerRequest *models.BannerRequest) ([]models.Banner, error)
 }
@@ -26,13 +25,13 @@ type TokenService interface {
 	ParseToken(token string) (bool, error)
 }
 
-type Controller struct {
+type Service struct {
 	bannerStore  BannerStore
 	cacheStore   CacheStore
 	tokenService TokenService
 }
 
-func (c *Controller) CreateNewBanner(banner *models.Banner, token string) error {
+func (c *Service) CreateNewBanner(banner *models.Banner, token string) error {
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
 		return errors.Wrap(err, "validate token failed")
@@ -44,7 +43,7 @@ func (c *Controller) CreateNewBanner(banner *models.Banner, token string) error 
 	return c.bannerStore.SaveBanner(banner)
 }
 
-func (c *Controller) UpdateBannerById(id int, banner *models.Banner, token string) error {
+func (c *Service) UpdateBannerByID(id int, banner *models.Banner, token string) error {
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
 		return errors.Wrap(err, "validate token failed")
@@ -56,7 +55,7 @@ func (c *Controller) UpdateBannerById(id int, banner *models.Banner, token strin
 	return c.bannerStore.UpdateBanner(id, banner)
 }
 
-func (c *Controller) DeleteBannerById(bannerId int, token string) error {
+func (c *Service) DeleteBannerByID(bannerId int, token string) error {
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
 		return errors.Wrap(err, "validate token failed")
@@ -68,7 +67,12 @@ func (c *Controller) DeleteBannerById(bannerId int, token string) error {
 	return c.bannerStore.DeleteBanner(bannerId)
 }
 
-func (c *Controller) GetUserBanner(bannerRequest *models.BannerRequest, useLastRevision bool) ([]byte, error) {
+func (c *Service) GetUserBanner(bannerRequest *models.BannerRequest, useLastRevision bool, token string) ([]byte, error) {
+	_, err := c.tokenService.ParseToken(token)
+	if err != nil {
+		return nil, errors.Wrap(err, "validate token failed")
+
+	}
 	requestBytes, err := json.Marshal(bannerRequest)
 	if !useLastRevision {
 		if err != nil {
@@ -88,11 +92,14 @@ func (c *Controller) GetUserBanner(bannerRequest *models.BannerRequest, useLastR
 		return nil, errors.Wrap(err, "marshal banner failed")
 
 	}
-	c.cacheStore.SetRequestCache(context.TODO(), requestBytes, bannerBytes)
+	err = c.cacheStore.SetRequestCache(context.TODO(), requestBytes, bannerBytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "set cache failed")
+	}
 	return bannerBytes, nil
 }
 
-func (c *Controller) GetAllBanners(bannerRequest *models.BannerRequest, token string) ([]models.Banner, error) {
+func (c *Service) GetAllBanners(bannerRequest *models.BannerRequest, token string) ([]models.Banner, error) {
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
 		return nil, errors.Wrap(err, "validate token failed")
@@ -104,7 +111,7 @@ func (c *Controller) GetAllBanners(bannerRequest *models.BannerRequest, token st
 	return c.bannerStore.GetAllBanners(bannerRequest)
 }
 
-func (c *Controller) CreateNewUserToken(isAdmin bool) (string, error) {
+func (c *Service) CreateNewUserToken(isAdmin bool) (string, error) {
 	token, err := c.tokenService.NewToken(isAdmin)
 	if err != nil {
 		return "", errors.Wrap(err, "generate token failed")
@@ -112,6 +119,6 @@ func (c *Controller) CreateNewUserToken(isAdmin bool) (string, error) {
 	return token, nil
 }
 
-func NewBannerController(cfg *config.Config) *Controller {
-	return &Controller{}
+func New(bannerStore BannerStore, cacheStore CacheStore, tokenService TokenService) *Service {
+	return &Service{bannerStore: bannerStore, cacheStore: cacheStore, tokenService: tokenService}
 }
