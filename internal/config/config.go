@@ -13,8 +13,10 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Port     string        `yaml:"port"`
-	CacheTTL time.Duration `yaml:"cache_ttl"`
+	Port      string        `yaml:"port"`
+	CacheTTL  time.Duration `yaml:"cache_ttl"`
+	TokenTTL  time.Duration `yaml:"token_ttl"`
+	AppSecret string        `yaml:"app_secret"`
 }
 
 func MustLoad() *Config {

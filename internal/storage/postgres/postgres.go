@@ -1,4 +1,4 @@
-package postgre
+package postgres
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func (d *DB) SaveBanner(banner *models.Banner) error {
 }
 
 func (d *DB) UpdateBanner(id int, banner *models.Banner) error {
-	_, err := d.Conn.Exec(context.TODO(), "delete from banner_tags where banner_id = $1", bannerId)
+	_, err := d.Conn.Exec(context.TODO(), "delete from banner_tags where banner_id = $1", id)
 	if err != nil {
 		return errors.Wrap(err, "delete banner tags failed")
 	}
@@ -63,7 +63,7 @@ func (d *DB) UpdateBanner(id int, banner *models.Banner) error {
 			return errors.Wrap(err, "insert tags failed")
 		}
 
-		_, err = d.Conn.Exec(context.TODO(), "insert into banner_tags (tag_id, banner_id) values ($1, $2)", tag, bannerID)
+		_, err = d.Conn.Exec(context.TODO(), "insert into banner_tags (tag_id, banner_id) values ($1, $2)", tag, id)
 		if err != nil {
 			return errors.Wrap(err, "insert tags failed")
 		}
@@ -84,42 +84,42 @@ func (d *DB) DeleteBanner(bannerId int) error {
 	return nil
 }
 
-func (d *DB) GetUserBanner(tagId, featureId int) error {
+func (d *DB) GetUserBanner(bannerRequest *models.BannerRequest) (*models.Banner, error) {
 	sqlBuilder := strings.Builder{}
 	sqlBuilder.WriteString("select * from banner b ")
-	if tagId != constants.NoValue {
+	if bannerRequest.TagId != constants.NoValue {
 		sqlBuilder.WriteString("join banner_tags bt on b.id = bt.banner_id where bt.tag_id = $1 ")
 	}
-	if featureId != constants.NoValue && tagId != constants.NoValue {
+	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId != constants.NoValue {
 		sqlBuilder.WriteString("and b.feature_id = $2 ")
 	}
-	if featureId != constants.NoValue && tagId == constants.NoValue {
+	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId == constants.NoValue {
 		sqlBuilder.WriteString("where b.feature_id = $1 ")
 	}
 	sqlBuilder.WriteString("and b.is_active = true order by b.id desc limit 1")
-	row := d.Conn.QueryRow(context.TODO(), sqlBuilder.String(), featureId, tagId)
+	row := d.Conn.QueryRow(context.TODO(), sqlBuilder.String(), bannerRequest.FeatureId, bannerRequest.TagId)
 	banner := models.Banner{}
 	err := row.Scan(&banner.ID, &banner.Feature, &banner.Content, &banner.IsActive)
 	if err != nil {
-		return errors.Wrap(err, "select banner failed")
+		return nil, errors.Wrap(err, "select banner failed")
 	}
-	return nil
+	return &banner, nil
 }
 
-func (d *DB) GetAllBanners(tagId, featureId, limit, offset int) ([]models.Banner, error) {
+func (d *DB) GetAllBanners(bannerRequest *models.BannerRequest) ([]models.Banner, error) {
 	sqlBuilder := strings.Builder{}
 	sqlBuilder.WriteString("select * from banner b ")
-	if tagId != constants.NoValue {
+	if bannerRequest.TagId != constants.NoValue {
 		sqlBuilder.WriteString("join banner_tags bt on b.id = bt.banner_id where bt.tag_id = $1 ")
 	}
-	if featureId != constants.NoValue && tagId != constants.NoValue {
+	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId != constants.NoValue {
 		sqlBuilder.WriteString("and b.feature_id = $2 ")
 	}
-	if featureId != constants.NoValue && tagId == constants.NoValue {
+	if bannerRequest.FeatureId != constants.NoValue && bannerRequest.TagId == constants.NoValue {
 		sqlBuilder.WriteString("where b.feature_id = $1 ")
 	}
 	sqlBuilder.WriteString("order by b.id desc limit $3 offset $4")
-	rows, err := d.Conn.Query(context.TODO(), sqlBuilder.String(), featureId, tagId, limit, offset)
+	rows, err := d.Conn.Query(context.TODO(), sqlBuilder.String(), bannerRequest.FeatureId, bannerRequest.TagId, bannerRequest.Limit, bannerRequest.Offset)
 	if err != nil {
 		return nil, errors.Wrap(err, "select banner failed")
 	}

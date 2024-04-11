@@ -7,17 +7,26 @@ import (
 )
 
 type BannerController interface {
-	GetBanner() (models.Banner, error)
-	GetAllBanners() ([]models.Banner, error)
-	CreateNewBanner() error
+	CreateNewBanner(banner *models.Banner, token string) error
+	UpdateBannerById(id int, banner *models.Banner, token string) error
+	DeleteBannerById(bannerId int, token string) error
+	GetUserBanner(bannerRequest *models.BannerRequest, useLastRevision bool) ([]byte, error)
+	GetAllBanners(bannerRequest *models.BannerRequest, token string) ([]models.Banner, error)
+	CreateNewUserToken(isAdmin bool) (string, error)
 }
 
 type Router struct {
 	*fiber.App
-	port string
+	port       string
+	controller BannerController
 }
 
 func (r *Router) GetUserBanner(c fiber.Ctx) error {
+	token := c.Get("token")
+	if token == "" {
+		return c.SendStatus(fiber.StatusUnauthorized)
+	}
+
 	return c.SendString("zdarova")
 }
 
@@ -38,9 +47,9 @@ func (r *Router) Run() error {
 	return r.Listen(":" + r.port)
 }
 
-func New(cfg *config.Config) *Router {
+func New(cfg *config.Config, controller BannerController) *Router {
 	app := fiber.New()
-	r := &Router{App: app, port: cfg.App.Port}
+	r := &Router{App: app, port: cfg.App.Port, controller: controller}
 	app.Get("/user_banner", r.GetUserBanner)
 	bannerAPI := app.Group("/banner")
 	bannerAPI.Patch("/:id", r.UpdateBanner)
