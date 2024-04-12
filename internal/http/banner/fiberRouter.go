@@ -6,11 +6,12 @@ import (
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/constants"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/models"
 	"github.com/gofiber/fiber/v3"
+	recover_middleware "github.com/gofiber/fiber/v3/middleware/recover"
 	"strconv"
 )
 
 type BannerController interface {
-	CreateNewBanner(banner *models.Banner, token string) error
+	CreateNewBanner(banner *models.Banner, token string) (int, error)
 	UpdateBannerByID(id int, banner *models.Banner, token string) error
 	DeleteBannerByID(bannerID int, token string) error
 	GetUserBanner(bannerRequest *models.BannerRequest, useLastRevision bool, token string) ([]byte, error)
@@ -27,7 +28,7 @@ type Router struct {
 func (r *Router) GetUserBanner(ctx fiber.Ctx) error {
 	token := ctx.Get("token")
 	if token == "" {
-		return ctx.SendStatus(fiber.StatusUnauthorized)
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token is required"})
 	}
 	tagID := constants.NoValue
 	featureID := constants.NoValue
@@ -73,7 +74,7 @@ func (r *Router) GetUserBanner(ctx fiber.Ctx) error {
 func (r *Router) GetAllBanners(ctx fiber.Ctx) error {
 	token := ctx.Get("token")
 	if token == "" {
-		return ctx.SendStatus(fiber.StatusUnauthorized)
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token is required"})
 	}
 	tagID := constants.NoValue
 	featureID := constants.NoValue
@@ -129,7 +130,7 @@ func (r *Router) GetAllBanners(ctx fiber.Ctx) error {
 func (r *Router) DeleteBannerByID(ctx fiber.Ctx) error {
 	token := ctx.Get("token")
 	if token == "" {
-		return ctx.SendStatus(fiber.StatusUnauthorized)
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token is required"})
 	}
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
@@ -144,7 +145,7 @@ func (r *Router) DeleteBannerByID(ctx fiber.Ctx) error {
 func (r *Router) UpdateBanner(ctx fiber.Ctx) error {
 	token := ctx.Get("token")
 	if token == "" {
-		return ctx.SendStatus(fiber.StatusUnauthorized)
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token is required"})
 	}
 	id, err := strconv.Atoi(ctx.Params("id"))
 	if err != nil {
@@ -164,17 +165,18 @@ func (r *Router) UpdateBanner(ctx fiber.Ctx) error {
 func (r *Router) CreateNewBanner(ctx fiber.Ctx) error {
 	token := ctx.Get("token")
 	if token == "" {
-		return ctx.SendStatus(fiber.StatusUnauthorized)
+		return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token is required"})
 	}
 	banner := new(models.Banner)
 	if err := json.Unmarshal(ctx.Body(), banner); err != nil {
 		return ctx.SendStatus(fiber.StatusBadRequest)
 	}
-	err := r.controller.CreateNewBanner(banner, token)
+	id, err := r.controller.CreateNewBanner(banner, token)
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	return ctx.SendStatus(fiber.StatusOK)
+	ctx.Status(fiber.StatusCreated)
+	return ctx.JSON(fiber.Map{"id": id})
 }
 
 func (r *Router) CreateUserToken(ctx fiber.Ctx) error {
@@ -200,12 +202,13 @@ func (r *Router) Run() error {
 
 func New(cfg *config.Config, controller BannerController) *Router {
 	app := fiber.New()
+	app.Use(recover_middleware.New())
 	r := &Router{App: app, port: cfg.App.Port, controller: controller}
 	app.Get("/user_token", r.CreateUserToken)
 	app.Get("/user_banner", r.GetUserBanner)
 	bannerAPI := app.Group("/banner")
 	bannerAPI.Patch("/:id", r.UpdateBanner)
-	bannerAPI.Delete("/:id", r.GetUserBanner)
+	bannerAPI.Delete("/:id", r.DeleteBannerByID)
 	bannerAPI.Get("", r.GetAllBanners)
 	bannerAPI.Post("", r.CreateNewBanner)
 	return r

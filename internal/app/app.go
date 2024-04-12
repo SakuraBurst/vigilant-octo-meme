@@ -7,6 +7,7 @@ import (
 	jwtservice "github.com/SakuraBurst/vigilant-octo-meme/internal/services/jwt"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/storage/cache"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/storage/postgres"
+	"log/slog"
 )
 
 type Router interface {
@@ -21,14 +22,16 @@ func (a *App) Run() error {
 	return a.router.Run()
 }
 
-func NewApp(cfg *config.Config) (*App, error) {
+func NewApp(cfg *config.Config, log *slog.Logger) (*App, error) {
 	storage, err := postgres.New(cfg)
 	if err != nil {
 		return nil, err
 	}
+
 	cacheStore := cache.New(cfg)
 	tokenService := jwtservice.New(cfg)
-	bannerService := bannerservice.New(storage, cacheStore, tokenService)
+	bannerService := bannerservice.New(storage, cacheStore, tokenService, log)
 	router := bannerrouter.New(cfg, bannerService)
+
 	return &App{router: router}, nil
 }

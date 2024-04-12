@@ -12,7 +12,7 @@ func main() {
 	cfg := config.MustLoad()
 	log := logger.NewSlogLogger()
 	log.LogAttrs(context.Background(), slog.LevelInfo, "cfg is", slog.Any("cfg", cfg))
-	application, err := app.NewApp(cfg)
+	application, err := app.NewApp(cfg, log)
 	if err != nil {
 		panic(err)
 	}

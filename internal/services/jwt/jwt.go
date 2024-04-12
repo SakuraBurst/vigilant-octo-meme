@@ -2,6 +2,7 @@ package jwtservice
 
 import (
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/config"
+	"github.com/SakuraBurst/vigilant-octo-meme/internal/services"
 	"github.com/go-faster/errors"
 	"github.com/golang-jwt/jwt/v5"
 	"time"
@@ -43,10 +44,10 @@ func (s *Service) ParseToken(tokenString string) (bool, error) {
 	claims := token.Claims.(jwt.MapClaims)
 	t, err := claims.GetExpirationTime()
 	if err != nil {
-		return false, errors.Wrap(err, "get expiration time failed")
+		return false, services.ErrUserNotAuthorized
 	}
 	if t.Time.Before(time.Now()) {
-		return false, errors.New("token is expired")
+		return false, errors.Wrap(services.ErrUserNotAuthorized, "token is expired")
 	}
 	isAdmin, ok := claims["isAdmin"].(bool)
 	if !ok {
