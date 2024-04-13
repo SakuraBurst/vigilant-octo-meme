@@ -5,6 +5,9 @@ import (
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/config"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/constants"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/models"
+	"github.com/SakuraBurst/vigilant-octo-meme/internal/services"
+	"github.com/SakuraBurst/vigilant-octo-meme/internal/storage"
+	"github.com/go-faster/errors"
 	"github.com/gofiber/fiber/v3"
 	recover_middleware "github.com/gofiber/fiber/v3/middleware/recover"
 	"strconv"
@@ -65,7 +68,7 @@ func (r *Router) GetUserBanner(ctx fiber.Ctx) error {
 	}
 	result, err := r.controller.GetUserBanner(bannerRequest, useLastRevision, token)
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return returnError(ctx, err)
 	}
 	ctx.Set("Content-Type", "application/json")
 	return ctx.Send(result)
@@ -123,7 +126,7 @@ func (r *Router) GetAllBanners(ctx fiber.Ctx) error {
 	}
 	result, err := r.controller.GetAllBanners(bannerRequest, token)
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return returnError(ctx, err)
 	}
 	return ctx.JSON(result)
 }
@@ -138,7 +141,7 @@ func (r *Router) DeleteBannerByID(ctx fiber.Ctx) error {
 	}
 	err = r.controller.DeleteBannerByID(id, token)
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return returnError(ctx, err)
 	}
 	return ctx.SendStatus(fiber.StatusOK)
 }
@@ -158,7 +161,7 @@ func (r *Router) UpdateBanner(ctx fiber.Ctx) error {
 	}
 	err = r.controller.UpdateBannerByID(id, banner, token)
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return returnError(ctx, err)
 	}
 	return ctx.SendStatus(fiber.StatusOK)
 }
@@ -173,7 +176,7 @@ func (r *Router) CreateNewBanner(ctx fiber.Ctx) error {
 	}
 	id, err := r.controller.CreateNewBanner(banner, token)
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return returnError(ctx, err)
 	}
 	ctx.Status(fiber.StatusCreated)
 	return ctx.JSON(fiber.Map{"id": id})
@@ -191,9 +194,23 @@ func (r *Router) CreateUserToken(ctx fiber.Ctx) error {
 	}
 	token, err := r.controller.CreateNewUserToken(isAdmin)
 	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return returnError(ctx, err)
 	}
 	return ctx.JSON(fiber.Map{"token": token})
+}
+
+func returnError(ctx fiber.Ctx, err error) error {
+	if errors.Is(err, services.ErrTokenInvalid) {
+		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	if errors.Is(err, services.ErrUserDontHaveAccess) {
+		return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
+	}
+	if errors.Is(err, storage.BannerNotFound) {
+		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+
+	}
+	return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 }
 
 func (r *Router) Run() error {

@@ -47,11 +47,12 @@ func TestBannerCrud_HappyPath(t *testing.T) {
 	err = json.Unmarshal(bannerContentBytes, &bannerContent)
 	require.NoError(t, err)
 	tagID := gofakeit.IntN(100)
+	tagID2 := gofakeit.IntN(100)
 	tagIDString := strconv.Itoa(tagID)
 	featureID := gofakeit.IntN(100)
 	featureIDString := strconv.Itoa(featureID)
 	banner := models.Banner{
-		Tags:     []int{tagID},
+		Tags:     []int{tagID, tagID2},
 		Feature:  featureID,
 		Content:  bannerContent,
 		IsActive: true,

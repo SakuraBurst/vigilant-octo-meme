@@ -118,7 +118,7 @@ func (c *Service) GetAllBanners(bannerRequest *models.BannerRequest, token strin
 		return nil, errors.Wrap(err, "validate token failed")
 	}
 	if !isAdmin {
-		return nil, errors.New("user is not admin")
+		return nil, errors.Wrap(services.ErrUserDontHaveAccess, "user is not admin")
 	}
 
 	return c.bannerStore.GetAllBanners(bannerRequest)

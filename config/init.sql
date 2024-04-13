@@ -27,8 +27,11 @@ CREATE or replace TRIGGER set_timestamp
 -- GROUP BY b.Id;
 --
 --
--- SELECT b.id, b.feature_id, bt.tag_id
--- FROM banners b JOIN banners_tags bt ON b.id = bt.banner_id where b.id = 1 group by b.id;
+SELECT b.id, b.feature_id
+FROM banners b JOIN banners_tags bt ON b.id = bt.banner_id where bt.tag_id = 1 group by b.id;
+
+select array_agg(tag_id) from banners_tags where banners_tags.banner_id = 1;
+
 --тегайди 2 феатуреайди 3
 --select (content) from banners b
 --join banners_tags bt on b.id = bt.banner_id

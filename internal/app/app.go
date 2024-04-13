@@ -23,13 +23,13 @@ func (a *App) Run() error {
 }
 
 func NewApp(cfg *config.Config, log *slog.Logger) (*App, error) {
-	storage, err := postgres.New(cfg)
+	storage, err := postgres.New(cfg, log)
 	if err != nil {
 		return nil, err
 	}
 
 	cacheStore := cache.New(cfg)
-	tokenService := jwtservice.New(cfg)
+	tokenService := jwtservice.New(cfg, log)
 	bannerService := bannerservice.New(storage, cacheStore, tokenService, log)
 	router := bannerrouter.New(cfg, bannerService)
 
