@@ -1,0 +1,45 @@
+version: '3.9'
+
+volumes:
+  postgres-storage:
+  app-storage:
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: banner_postgres
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres
+      POSTGRES_DB: photos-payment
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres-storage:/var/lib/postgresql/data
+    external_links:
+      - postgres
+
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: banner_app
+    volumes:
+      - app-storage:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8080:8080'
+    environment:
+      ENVIRONMENT: "local"
+      STORAGE_PATH: "postgres://postgres:password@postgres:5432/photos-payment"
+      PORT: "8080"
+      CACHE_TTL: "5m"
+      TOKEN_TTL: "1h"
+      APP_SECRET: "secret"

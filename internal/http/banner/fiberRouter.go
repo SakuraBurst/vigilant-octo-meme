@@ -208,7 +208,6 @@ func returnError(ctx fiber.Ctx, err error) error {
 	}
 	if errors.Is(err, storage.BannerNotFound) {
 		return ctx.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-
 	}
 	return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 }
