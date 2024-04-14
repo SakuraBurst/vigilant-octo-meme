@@ -40,7 +40,7 @@ func (s *Service) NewToken(isAdmin bool) (string, error) {
 	return tokenString, nil
 }
 
-// err == nil - значит токен валидный, булевое значение - админ ли пользователь
+// ParseToken возвращает флаг и ошибку. Флаг - админ ли пользователь, err - является ли токен валидным
 func (s *Service) ParseToken(tokenString string) (bool, error) {
 	log := s.log.With(slog.String("method", "ParseToken"))
 	token, err := jwt.Parse(tokenString, func(_ *jwt.Token) (interface{}, error) {

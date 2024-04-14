@@ -57,6 +57,35 @@ tests/k6/read_and_random_write.js
   - Логгирование: Slog
   - Драйвер PostgreSQL: Pgx
 
+
+### Линтеры и Форматтеры
+В проекте использовался линтер golangci-lint и форматтер gofmt. Конфигурация линтера стандартная, которую предлагает golint для goland:
+    
+```plaintext
+exportloopref
+interfacer
+staticcheck
+govet
+dupl
+funlen
+errorlint
+gocritic
+goconst
+gocognit
+ineffassign
+bodyclose
+gosec
+maligned
+revive
+stylecheck
+whitespace
+goprintffuncname
+gosimple
+prealloc
+gocyclo
+```
+Также использовал qodana от jetbrains для анализа кода.
+
 ### Пропущенные задания
 
 В рамках текущего задания не были реализованы дополнительные задачи. Отсутствие попыток реализации дополнительных задач обусловлено ограниченным временем, вызванным задержкой начала работы над проектом.

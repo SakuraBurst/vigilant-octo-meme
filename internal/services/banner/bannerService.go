@@ -11,11 +11,11 @@ import (
 )
 
 type BannerStore interface {
-	SaveBanner(banner *models.Banner) (int, error)
-	UpdateBanner(id int, banner *models.Banner) error
-	DeleteBanner(bannerID int) error
-	GetUserBanner(bannerRequest *models.BannerRequest) (map[string]interface{}, error)
-	GetAllBanners(bannerRequest *models.BannerRequest) ([]models.Banner, error)
+	SaveBanner(ctx context.Context, banner *models.Banner) (int, error)
+	UpdateBanner(ctx context.Context, id int, banner *models.Banner) error
+	DeleteBanner(ctx context.Context, bannerID int) error
+	GetUserBanner(ctx context.Context, bannerRequest *models.BannerRequest) (map[string]interface{}, error)
+	GetAllBanners(ctx context.Context, bannerRequest *models.BannerRequest) ([]models.Banner, error)
 }
 
 type CacheStore interface {
@@ -35,7 +35,7 @@ type Service struct {
 	log          *slog.Logger
 }
 
-func (c *Service) CreateNewBanner(banner *models.Banner, token string) (int, error) {
+func (c *Service) CreateNewBanner(ctx context.Context, banner *models.Banner, token string) (int, error) {
 	log := c.log.With(slog.String("method", "CreateNewBanner"))
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
@@ -46,10 +46,10 @@ func (c *Service) CreateNewBanner(banner *models.Banner, token string) (int, err
 		log.Error("user is not admin")
 		return constants.NoValue, errors.Wrap(services.ErrUserDontHaveAccess, "user is not admin")
 	}
-	return c.bannerStore.SaveBanner(banner)
+	return c.bannerStore.SaveBanner(ctx, banner)
 }
 
-func (c *Service) UpdateBannerByID(id int, banner *models.Banner, token string) error {
+func (c *Service) UpdateBannerByID(ctx context.Context, id int, banner *models.Banner, token string) error {
 	log := c.log.With(slog.String("method", "UpdateBannerByID"))
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
@@ -61,10 +61,10 @@ func (c *Service) UpdateBannerByID(id int, banner *models.Banner, token string) 
 		return errors.Wrap(services.ErrUserDontHaveAccess, "user is not admin")
 	}
 
-	return c.bannerStore.UpdateBanner(id, banner)
+	return c.bannerStore.UpdateBanner(ctx, id, banner)
 }
 
-func (c *Service) DeleteBannerByID(bannerID int, token string) error {
+func (c *Service) DeleteBannerByID(ctx context.Context, bannerID int, token string) error {
 	log := c.log.With(slog.String("method", "DeleteBannerByID"))
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
@@ -76,10 +76,10 @@ func (c *Service) DeleteBannerByID(bannerID int, token string) error {
 		return errors.Wrap(services.ErrUserDontHaveAccess, "user is not admin")
 	}
 
-	return c.bannerStore.DeleteBanner(bannerID)
+	return c.bannerStore.DeleteBanner(ctx, bannerID)
 }
 
-func (c *Service) GetUserBanner(bannerRequest *models.BannerRequest, useLastRevision bool, token string) ([]byte, error) {
+func (c *Service) GetUserBanner(ctx context.Context, bannerRequest *models.BannerRequest, useLastRevision bool, token string) ([]byte, error) {
 	log := c.log.With(slog.String("method", "GetUserBanner"))
 	_, err := c.tokenService.ParseToken(token)
 	if err != nil {
@@ -91,13 +91,13 @@ func (c *Service) GetUserBanner(bannerRequest *models.BannerRequest, useLastRevi
 		return nil, errors.Wrap(err, "marshal request failed")
 	}
 	if !useLastRevision {
-		cache, err := c.cacheStore.GetRequestCache(context.TODO(), requestBytes)
+		cache, err := c.cacheStore.GetRequestCache(ctx, requestBytes)
 		if err == nil {
 			return cache, nil
 		}
 		log.Error(err.Error())
 	}
-	banner, err := c.bannerStore.GetUserBanner(bannerRequest)
+	banner, err := c.bannerStore.GetUserBanner(ctx, bannerRequest)
 	if err != nil {
 		return nil, errors.Wrap(err, "get user banner failed")
 	}
@@ -112,7 +112,7 @@ func (c *Service) GetUserBanner(bannerRequest *models.BannerRequest, useLastRevi
 	return bannerBytes, nil
 }
 
-func (c *Service) GetAllBanners(bannerRequest *models.BannerRequest, token string) ([]models.Banner, error) {
+func (c *Service) GetAllBanners(ctx context.Context, bannerRequest *models.BannerRequest, token string) ([]models.Banner, error) {
 	isAdmin, err := c.tokenService.ParseToken(token)
 	if err != nil {
 		return nil, errors.Wrap(err, "validate token failed")
@@ -121,7 +121,7 @@ func (c *Service) GetAllBanners(bannerRequest *models.BannerRequest, token strin
 		return nil, errors.Wrap(services.ErrUserDontHaveAccess, "user is not admin")
 	}
 
-	return c.bannerStore.GetAllBanners(bannerRequest)
+	return c.bannerStore.GetAllBanners(ctx, bannerRequest)
 }
 
 func (c *Service) CreateNewUserToken(isAdmin bool) (string, error) {

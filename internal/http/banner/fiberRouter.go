@@ -1,6 +1,7 @@
 package bannerrouter
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/config"
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/domain/constants"
@@ -9,16 +10,16 @@ import (
 	"github.com/SakuraBurst/vigilant-octo-meme/internal/storage"
 	"github.com/go-faster/errors"
 	"github.com/gofiber/fiber/v3"
-	recover_middleware "github.com/gofiber/fiber/v3/middleware/recover"
+	recoverMiddleware "github.com/gofiber/fiber/v3/middleware/recover"
 	"strconv"
 )
 
 type BannerController interface {
-	CreateNewBanner(banner *models.Banner, token string) (int, error)
-	UpdateBannerByID(id int, banner *models.Banner, token string) error
-	DeleteBannerByID(bannerID int, token string) error
-	GetUserBanner(bannerRequest *models.BannerRequest, useLastRevision bool, token string) ([]byte, error)
-	GetAllBanners(bannerRequest *models.BannerRequest, token string) ([]models.Banner, error)
+	CreateNewBanner(ctx context.Context, banner *models.Banner, token string) (int, error)
+	UpdateBannerByID(ctx context.Context, id int, banner *models.Banner, token string) error
+	DeleteBannerByID(ctx context.Context, bannerID int, token string) error
+	GetUserBanner(ctx context.Context, bannerRequest *models.BannerRequest, useLastRevision bool, token string) ([]byte, error)
+	GetAllBanners(ctx context.Context, bannerRequest *models.BannerRequest, token string) ([]models.Banner, error)
 	CreateNewUserToken(isAdmin bool) (string, error)
 }
 
@@ -66,7 +67,7 @@ func (r *Router) GetUserBanner(ctx fiber.Ctx) error {
 		TagID:     tagID,
 		FeatureID: featureID,
 	}
-	result, err := r.controller.GetUserBanner(bannerRequest, useLastRevision, token)
+	result, err := r.controller.GetUserBanner(ctx.Context(), bannerRequest, useLastRevision, token)
 	if err != nil {
 		return returnError(ctx, err)
 	}
@@ -124,7 +125,7 @@ func (r *Router) GetAllBanners(ctx fiber.Ctx) error {
 		Limit:     limit,
 		Offset:    offset,
 	}
-	result, err := r.controller.GetAllBanners(bannerRequest, token)
+	result, err := r.controller.GetAllBanners(ctx.Context(), bannerRequest, token)
 	if err != nil {
 		return returnError(ctx, err)
 	}
@@ -139,7 +140,7 @@ func (r *Router) DeleteBannerByID(ctx fiber.Ctx) error {
 	if err != nil {
 		return ctx.SendStatus(fiber.StatusBadRequest)
 	}
-	err = r.controller.DeleteBannerByID(id, token)
+	err = r.controller.DeleteBannerByID(ctx.Context(), id, token)
 	if err != nil {
 		return returnError(ctx, err)
 	}
@@ -159,7 +160,7 @@ func (r *Router) UpdateBanner(ctx fiber.Ctx) error {
 	if err := json.Unmarshal(ctx.Body(), banner); err != nil {
 		return ctx.SendStatus(fiber.StatusBadRequest)
 	}
-	err = r.controller.UpdateBannerByID(id, banner, token)
+	err = r.controller.UpdateBannerByID(ctx.Context(), id, banner, token)
 	if err != nil {
 		return returnError(ctx, err)
 	}
@@ -174,7 +175,7 @@ func (r *Router) CreateNewBanner(ctx fiber.Ctx) error {
 	if err := json.Unmarshal(ctx.Body(), banner); err != nil {
 		return ctx.SendStatus(fiber.StatusBadRequest)
 	}
-	id, err := r.controller.CreateNewBanner(banner, token)
+	id, err := r.controller.CreateNewBanner(ctx.Context(), banner, token)
 	if err != nil {
 		return returnError(ctx, err)
 	}
@@ -216,9 +217,13 @@ func (r *Router) Run() error {
 	return r.Listen(":" + r.port)
 }
 
+func (r *Router) Close() error {
+	return r.Shutdown()
+}
+
 func New(cfg *config.Config, controller BannerController) *Router {
 	app := fiber.New()
-	app.Use(recover_middleware.New())
+	app.Use(recoverMiddleware.New())
 	r := &Router{App: app, port: cfg.App.Port, controller: controller}
 	app.Get("/user_token", r.CreateUserToken)
 	app.Get("/user_banner", r.GetUserBanner)
