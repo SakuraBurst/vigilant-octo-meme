@@ -26,7 +26,7 @@ http://localhost:8080/user_token?isAdmin=false
 ```
 Без указания статуса администратора:
 ```bash
-http://localhost/user_token
+http://localhost:8080/user_token
 ```
 ## Логика Обработки Параметров
 
