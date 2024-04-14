@@ -16,13 +16,13 @@ make dc
 - Для получения токена администратора:
 
 ```bash
-http://localhost/user_token?isAdmin=true
+http://localhost:8080/user_token?isAdmin=true
 ```
 - Для получения обычного токена:
 
 Явное указание пользователя как не админа:
 ```bash
-http://localhost/user_token?isAdmin=false
+http://localhost:8080/user_token?isAdmin=false
 ```
 Без указания статуса администратора:
 ```bash
